@@ -1,0 +1,49 @@
+{
+  "name": "jailbreak-vercel",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@upstash/ratelimit": "^2",
+    "@upstash/redis": "^1",
+    "canvas-confetti": "^1.9.4",
+    "next": "16.2.4",
+    "pusher": "^5",
+    "pusher-js": "^8",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "server-only": "^0.0.1",
+    "uuid": "^11"
+  },
+  "overrides": {
+    "eslint-plugin-react-hooks": "7.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^5.1.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "dotenv": "^17.2.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "jsdom": "^28.0.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.0.18"
+  }
+}
