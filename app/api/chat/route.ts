@@ -29,6 +29,32 @@ function isValidMessage(msg: unknown): msg is Message {
   );
 }
 
+// Reasoning-class models (gpt-5 family, o1, o3) reject `max_tokens` and
+// `temperature` from the legacy chat-completions shape. They require
+// `max_completion_tokens` and only accept temperature=1 (so we omit it).
+function isReasoningModel(model: string): boolean {
+  return /^(gpt-5|o1|o3)/.test(model);
+}
+
+function buildOpenAIBody(model: string, systemPrompt: string, messages: Message[]) {
+  const body: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages,
+    ],
+  };
+
+  if (isReasoningModel(model)) {
+    body.max_completion_tokens = 1024;
+  } else {
+    body.max_tokens = 1024;
+    body.temperature = 0.7;
+  }
+
+  return body;
+}
+
 async function callOpenAIWithRetry(
   apiKey: string,
   model: string,
@@ -45,15 +71,7 @@ async function callOpenAIWithRetry(
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages,
-          ],
-          max_tokens: 1024,
-          temperature: 0.7,
-        }),
+        body: JSON.stringify(buildOpenAIBody(model, systemPrompt, messages)),
         signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
       });
 

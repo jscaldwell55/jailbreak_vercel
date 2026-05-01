@@ -649,3 +649,79 @@ describeWithRedis('POST /api/demo/champion', () => {
     expect(championResponse.status).toBe(400)
   })
 })
+
+describeWithRedis('redeploy migration safety', () => {
+  afterEach(async () => {
+    await cleanupTestData()
+  })
+
+  it('frees an orphan name reservation when its session no longer resolves', async () => {
+    const r = getRedis()!
+    const name = generateTestName()
+    const orphanedSessionId = `orphaned-${Date.now()}`
+
+    // Simulate a name reservation pointing at a session that no longer exists.
+    await r.set(DEMO_KEYS.name(name.toLowerCase()), orphanedSessionId, { ex: DEMO_TTL })
+
+    // The original user tries to rejoin under the same name.
+    const ip = generateTestIP()
+    const joinRequest = createMockRequest({
+      method: 'POST',
+      body: { displayName: name },
+      headers: { 'x-real-ip': ip },
+    })
+    const joinResponse = await joinDemo(joinRequest)
+    const joinData = await joinResponse.json()
+
+    expect(joinResponse.status).toBe(200)
+    expect(joinData.success).toBe(true)
+    expect(joinData.displayName).toBe(name)
+
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
+  })
+
+  it('upgrades an old-shape session (missing playerId) on resume', async () => {
+    const r = getRedis()!
+    const name = generateTestName()
+    const oldSessionId = `pre-migration-${Date.now()}`
+
+    // Simulate a session hash from before the playerId migration: all the old
+    // fields, but no playerId.
+    await r.hset(DEMO_KEYS.session(oldSessionId), {
+      displayName: name,
+      level: '2',
+      joinedAt: new Date().toISOString(),
+    })
+    await r.expire(DEMO_KEYS.session(oldSessionId), DEMO_TTL)
+    await r.set(DEMO_KEYS.name(name.toLowerCase()), oldSessionId, { ex: DEMO_TTL })
+    // Old leaderboard schema used sessionId as the member.
+    await r.zadd(DEMO_KEYS.leaderboard, { score: 2, member: oldSessionId })
+
+    testSessionCookies.push(oldSessionId)
+    testNames.push(name)
+
+    const resumeRequest = createMockRequest({
+      url: 'http://localhost:3000/api/demo/resume',
+      cookies: { demo_session: oldSessionId },
+    })
+    const resumeResponse = await resumeDemo(resumeRequest)
+    const resumeData = await resumeResponse.json()
+
+    expect(resumeResponse.status).toBe(200)
+    expect(resumeData.found).toBe(true)
+    expect(resumeData.playerId).toBeTruthy()
+    expect(resumeData.displayName).toBe(name)
+    expect(resumeData.level).toBe(2)
+
+    if (resumeData.playerId) testPlayerIds.push(resumeData.playerId)
+
+    // The old sessionId-keyed leaderboard entry should be cleaned up; the new
+    // playerId entry should be present.
+    const stale = await r.zscore(DEMO_KEYS.leaderboard, oldSessionId)
+    expect(stale).toBeNull()
+    const fresh = await r.zscore(DEMO_KEYS.leaderboard, resumeData.playerId)
+    expect(fresh).not.toBeNull()
+  })
+})

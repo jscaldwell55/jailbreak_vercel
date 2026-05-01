@@ -72,8 +72,18 @@ export async function isNameAvailable(displayName: string): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return true;
 
-  const existing = await redis.get(DEMO_KEYS.name(displayName));
-  return !existing;
+  const existing = await redis.get<string>(DEMO_KEYS.name(displayName));
+  if (!existing) return true;
+
+  // Reservation exists — verify it still points to a live session. After a
+  // redeploy, sessions whose schema no longer parses (or sessions that were
+  // manually deleted) leave the name reservation orphaned. Free it so the
+  // original user isn't locked out of their own name for the rest of the TTL.
+  const session = await getDemoSession(existing);
+  if (session) return false;
+
+  await redis.del(DEMO_KEYS.name(displayName));
+  return true;
 }
 
 export async function createDemoSession(displayName: string, clientIP?: string): Promise<DemoSession | null> {
@@ -142,8 +152,15 @@ export async function getDemoSession(sessionId: string): Promise<DemoSession | n
 
   const data = await redis.hgetall<SessionHash>(DEMO_KEYS.session(sessionId));
 
-  if (!data || !data.playerId || !data.displayName || !data.level || !data.joinedAt) {
+  if (!data || !data.displayName || !data.level || !data.joinedAt) {
     return null;
+  }
+
+  // Pre-playerId-migration sessions are missing `playerId`. Upgrade in place so
+  // an existing user's refresh after redeploy doesn't leave them locked out of
+  // their own session and name reservation.
+  if (!data.playerId) {
+    return upgradeOldSession(sessionId, data);
   }
 
   return {
@@ -153,6 +170,45 @@ export async function getDemoSession(sessionId: string): Promise<DemoSession | n
     level: parseInt(data.level, 10),
     joinedAt: data.joinedAt,
     isChampion: data.isChampion === 'true',
+  };
+}
+
+async function upgradeOldSession(sessionId: string, data: SessionHash): Promise<DemoSession> {
+  const redis = getRedis()!;
+  const playerId = uuid();
+  const level = parseInt(data.level!, 10);
+  const isChampion = data.isChampion === 'true';
+
+  // Old leaderboard entries used sessionId as the member — drop them so the
+  // self-healing orphan path doesn't keep tripping over the stale entry.
+  await redis.zrem(DEMO_KEYS.leaderboard, sessionId);
+
+  const sessionKey = DEMO_KEYS.session(sessionId);
+  await redis.hset(sessionKey, { playerId });
+  await redis.expire(sessionKey, DEMO_TTL);
+
+  const playerData: Record<string, string> = {
+    displayName: data.displayName!,
+    level: data.level!,
+  };
+  if (isChampion) playerData.isChampion = 'true';
+
+  const playerKey = DEMO_KEYS.player(playerId);
+  await redis.hset(playerKey, playerData);
+  await redis.expire(playerKey, DEMO_TTL);
+
+  await redis.zadd(DEMO_KEYS.leaderboard, {
+    score: calculateLeaderboardScore(level, isChampion),
+    member: playerId,
+  });
+
+  return {
+    sessionId,
+    playerId,
+    displayName: data.displayName!,
+    level,
+    joinedAt: data.joinedAt!,
+    isChampion,
   };
 }
 
