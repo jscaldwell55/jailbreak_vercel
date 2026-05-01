@@ -164,7 +164,7 @@ vitest.config.ts                      (if keeping tests)
     "@types/canvas-confetti": "^1.9.0"
   }
 }
-```
+``
 
 Drop from source: `drizzle-orm`, `drizzle-kit`, `postgres`, `ioredis`, `jose`, `rate-limiter-flexible`, `tsup`, `tsx`. Keep dev deps for typescript, eslint, vitest, tailwind, testing-library.
 
