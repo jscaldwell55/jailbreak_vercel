@@ -140,14 +140,6 @@ export function useDemoMode(options: UseDemoModeOptions = {}): UseDemoModeReturn
     setGameStarted(true);
   }, []);
 
-  const handleReset = useCallback(() => {
-    setMessages([]);
-    messagesRef.current = [];
-    setSuccess(false);
-    setRevealedSecret(null);
-    setError(null);
-  }, []);
-
   const handleNextLevel = useCallback(() => {
     const nextLevel = getLevel(currentLevel.id + 1);
     setCurrentLevel(nextLevel);
@@ -178,7 +170,6 @@ export function useDemoMode(options: UseDemoModeOptions = {}): UseDemoModeReturn
     gameStarted,
     handleSend,
     handleSelectLevel,
-    handleReset,
     handleNextLevel,
     handleQuit,
     session,

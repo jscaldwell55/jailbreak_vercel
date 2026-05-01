@@ -164,7 +164,6 @@ function DemoGameWithLeaderboard({ session }: { session: DemoSession }) {
             gameStarted={gameState.gameStarted}
             onSend={gameState.handleSend}
             onSelectLevel={gameState.handleSelectLevel}
-            onReset={gameState.handleReset}
             onNextLevel={gameState.handleNextLevel}
             onQuit={gameState.handleQuit}
             demoDisplayName={session.displayName}

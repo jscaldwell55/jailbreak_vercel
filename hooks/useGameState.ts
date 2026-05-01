@@ -19,7 +19,6 @@ export interface GameState {
 export interface GameActions {
   handleSend: (content: string) => Promise<void>;
   handleSelectLevel: (level: ClientLevel) => void;
-  handleReset: () => void;
   handleNextLevel: () => void;
   handleQuit: () => void;
 }

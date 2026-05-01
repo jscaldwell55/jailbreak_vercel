@@ -8,12 +8,11 @@ import { TerminalIcon } from '@/components/Icons';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
-  onReset: () => void;
   disabled?: boolean;
   loading?: boolean;
 }
 
-export default function ChatInput({ onSend, onReset, disabled, loading }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -70,19 +69,14 @@ export default function ChatInput({ onSend, onReset, disabled, loading }: ChatIn
           className="flex-1 min-h-[96px] resize-none"
         />
 
-        <div className="flex gap-2" role="group" aria-label="Message actions">
-          <Button
-            onClick={handleSubmit}
-            disabled={!message.trim() || disabled || loading}
-            aria-busy={loading}
-            className="flex-1"
-          >
-            {loading ? 'Sending...' : 'Send'}
-          </Button>
-          <Button onClick={onReset} aria-label="Start new conversation" variant="secondary" className="px-3 sm:px-4">
-            New
-          </Button>
-        </div>
+        <Button
+          onClick={handleSubmit}
+          disabled={!message.trim() || disabled || loading}
+          aria-busy={loading}
+          className="w-full"
+        >
+          {loading ? 'Sending...' : 'Send'}
+        </Button>
 
         <p id="keyboard-hint" className="text-xs text-[var(--text-secondary)] text-center hidden sm:block">
           Press Enter to send, Shift+Enter for new line

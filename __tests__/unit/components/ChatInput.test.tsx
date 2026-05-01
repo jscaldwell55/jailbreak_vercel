@@ -6,7 +6,6 @@ import ChatInput from '@/components/ChatInput'
 describe('ChatInput', () => {
   const defaultProps = {
     onSend: vi.fn(),
-    onReset: vi.fn(),
     disabled: false,
     loading: false,
   }
@@ -26,12 +25,6 @@ describe('ChatInput', () => {
       render(<ChatInput {...defaultProps} />)
 
       expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument()
-    })
-
-    it('renders New button', () => {
-      render(<ChatInput {...defaultProps} />)
-
-      expect(screen.getByRole('button', { name: /new/i })).toBeInTheDocument()
     })
 
     it('renders placeholder text', () => {
@@ -170,18 +163,6 @@ describe('ChatInput', () => {
     })
   })
 
-  describe('reset functionality', () => {
-    it('calls onReset when New button is clicked', async () => {
-      const user = userEvent.setup()
-      const onReset = vi.fn()
-      render(<ChatInput {...defaultProps} onReset={onReset} />)
-
-      await user.click(screen.getByRole('button', { name: /new/i }))
-
-      expect(onReset).toHaveBeenCalled()
-    })
-  })
-
   describe('accessibility', () => {
     it('has accessible label for textarea', () => {
       render(<ChatInput {...defaultProps} />)
@@ -196,11 +177,6 @@ describe('ChatInput', () => {
       expect(screen.getByRole('button', { name: /sending/i })).toHaveAttribute('aria-busy', 'true')
     })
 
-    it('has aria-label on New button', () => {
-      render(<ChatInput {...defaultProps} />)
-
-      expect(screen.getByRole('button', { name: /new/i })).toHaveAttribute('aria-label')
-    })
   })
 
   describe('keyboard interaction', () => {

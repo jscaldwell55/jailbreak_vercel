@@ -25,7 +25,6 @@ interface GameContainerProps {
   gameStarted: boolean;
   onSend: (content: string) => void;
   onSelectLevel: (level: ClientLevel) => void;
-  onReset: () => void;
   onNextLevel: () => void;
   onQuit: () => void;
 }
@@ -42,7 +41,6 @@ export default function GameContainer({
   gameStarted,
   onSend,
   onSelectLevel,
-  onReset,
   onNextLevel,
   onQuit,
 }: GameContainerProps) {
@@ -181,7 +179,7 @@ export default function GameContainer({
               )}
 
               <div className={shouldShowHints ? 'h-full' : 'md:col-span-2'}>
-                <ChatInput onSend={onSend} onReset={onReset} disabled={success} loading={loading} />
+                <ChatInput onSend={onSend} disabled={success} loading={loading} />
               </div>
             </div>
           </section>

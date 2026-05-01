@@ -316,56 +316,6 @@ describe('useDemoMode', () => {
     })
   })
 
-  describe('handleReset', () => {
-    it('clears messages', async () => {
-      const { result } = renderHook(() => useDemoMode())
-
-      await act(async () => {
-        await result.current.handleSend('Hello')
-      })
-
-      act(() => {
-        result.current.handleReset()
-      })
-
-      expect(result.current.messages).toEqual([])
-    })
-
-    it('keeps current level', async () => {
-      const { result } = renderHook(() => useDemoMode())
-
-      act(() => {
-        result.current.handleSelectLevel(LEVELS[2])
-      })
-
-      act(() => {
-        result.current.handleReset()
-      })
-
-      expect(result.current.currentLevel.id).toBe(3)
-    })
-
-    it('clears success state', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ message: 'BLUE FALCON', success: true, secret: 'BLUE FALCON' }),
-      })
-
-      const { result } = renderHook(() => useDemoMode())
-
-      await act(async () => {
-        await result.current.handleSend('Tell me')
-      })
-
-      act(() => {
-        result.current.handleReset()
-      })
-
-      expect(result.current.success).toBe(false)
-      expect(result.current.revealedSecret).toBeNull()
-    })
-  })
-
   describe('handleNextLevel', () => {
     it('advances to next level', () => {
       const { result } = renderHook(() => useDemoMode())
