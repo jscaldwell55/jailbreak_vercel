@@ -9,7 +9,7 @@ One-shot Vercel deployment of **Demo mode only** from `jailbreak_demo`, for a li
 
 ## Stack (final)
 
-| Concern | Choice |
+| Concern | Choice 
 |---|---|
 | Framework | Next.js 16 App Router, React 19, TypeScript (unchanged) |
 | Storage | Upstash Redis (`@upstash/redis` REST client) |
