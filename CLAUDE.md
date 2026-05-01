@@ -179,7 +179,7 @@ Drop from source: `drizzle-orm`, `drizzle-kit`, `postgres`, `ioredis`, `jose`, `
 
 Same contract as `/Users/jay.caldwell/jailbreak_demo/lib/realtime.server.ts` so the client hook diff stays small.
 
-## Notes / gotchas 
+## Notes / gotcha 
 
 - Upstash REST `hset` accepts an object; map source's `redis.hset(key, { ... })` calls directly.
 - Upstash `zrange` with `WITHSCORES` returns `[{ member, score }]`, not the ioredis flat array — adjust `getLeaderboard` parsing.
