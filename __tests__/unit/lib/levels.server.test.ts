@@ -44,7 +44,7 @@ describe('lib/levels.server', () => {
     })
 
     it('each level has a valid OpenAI model', () => {
-      const validModels = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gpt-4o', 'gpt-4', 'gpt-4-turbo']
+      const validModels = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gpt-4o', 'gpt-4', 'gpt-4-turbo', 'gpt-5', 'gpt-5.5']
       LEVELS.forEach(level => {
         expect(validModels).toContain(level.model)
       })
@@ -114,7 +114,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(4)
         expect(level.name).toBe('The Analyst')
-        expect(level.model).toBe('gpt-4o-mini')
+        expect(level.model).toBe('gpt-5')
       })
 
       it('has secret IRON FORTRESS', () => {
@@ -132,7 +132,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(5)
         expect(level.name).toBe('The Vault')
-        expect(level.model).toBe('gpt-4o')
+        expect(level.model).toBe('gpt-5.5')
       })
 
       it('has secret CRIMSON PHOENIX', () => {
@@ -195,12 +195,12 @@ describe('lib/levels.server', () => {
 
   describe('level progression', () => {
     it('difficulty increases with level', () => {
-      // GPT-3.5 for levels 1-3, GPT-4 variants for 4-5
+      // GPT-3.5 for levels 1-3, GPT-5 variants for 4-5
       expect(LEVELS[0].model).toBe('gpt-3.5-turbo')
       expect(LEVELS[1].model).toBe('gpt-3.5-turbo')
       expect(LEVELS[2].model).toBe('gpt-3.5-turbo')
-      expect(LEVELS[3].model).toBe('gpt-4o-mini')
-      expect(LEVELS[4].model).toBe('gpt-4o')
+      expect(LEVELS[3].model).toBe('gpt-5')
+      expect(LEVELS[4].model).toBe('gpt-5.5')
     })
 
     it('hints are shown for easier levels only', () => {

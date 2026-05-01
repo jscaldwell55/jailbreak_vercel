@@ -222,15 +222,20 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
   const rows = parseLeaderboardRows(result);
   if (rows.length === 0) return [];
 
-  const entries: LeaderboardEntry[] = [];
-
+  const pipeline = redis.pipeline();
   for (const row of rows) {
+    pipeline.hget(DEMO_KEYS.session(row.member), 'displayName');
+  }
+  const displayNames = await pipeline.exec<(string | null)[]>();
+
+  const entries: LeaderboardEntry[] = [];
+  const orphans: string[] = [];
+
+  rows.forEach((row, idx) => {
     const rawLevel = Math.floor(row.score);
     const isChampion = rawLevel === 6;
     const level = isChampion ? 5 : rawLevel;
-
-    const sessionKey = DEMO_KEYS.session(row.member);
-    const displayName = await redis.hget<string>(sessionKey, 'displayName');
+    const displayName = displayNames[idx];
 
     if (displayName) {
       entries.push({
@@ -240,8 +245,16 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
         isChampion,
       });
     } else {
-      await redis.zrem(DEMO_KEYS.leaderboard, row.member);
+      orphans.push(row.member);
     }
+  });
+
+  if (orphans.length > 0) {
+    const cleanup = redis.pipeline();
+    for (const member of orphans) {
+      cleanup.zrem(DEMO_KEYS.leaderboard, member);
+    }
+    await cleanup.exec();
   }
 
   return entries;

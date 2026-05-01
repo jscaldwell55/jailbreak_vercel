@@ -61,21 +61,33 @@ export function useDemoLeaderboard(options: UseDemoLeaderboardOptions = {}): Use
   const [isLive, setIsLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchInFlightRef = useRef(false);
+  const pendingEventsRef = useRef<Array<(prev: LeaderboardPlayer[]) => LeaderboardPlayer[]>>([]);
+  const hasConnectedRef = useRef(false);
 
   const fetchLeaderboard = useCallback(async () => {
+    fetchInFlightRef.current = true;
     try {
       const response = await fetch('/api/demo/leaderboard');
       if (!response.ok) {
         throw new Error('Failed to fetch leaderboard');
       }
       const data = await response.json();
-      setPlayers(data.players || []);
+      setPlayers(() => {
+        let next: LeaderboardPlayer[] = data.players || [];
+        for (const apply of pendingEventsRef.current) {
+          next = apply(next);
+        }
+        pendingEventsRef.current = [];
+        return next;
+      });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
     } finally {
       setIsLoading(false);
+      fetchInFlightRef.current = false;
     }
   }, []);
 
@@ -96,42 +108,47 @@ export function useDemoLeaderboard(options: UseDemoLeaderboardOptions = {}): Use
 
     const channel = pusher.subscribe(CHANNEL);
 
-    const handleConnected = () => setIsLive(true);
+    const dispatch = (apply: (prev: LeaderboardPlayer[]) => LeaderboardPlayer[]) => {
+      if (fetchInFlightRef.current) {
+        pendingEventsRef.current.push(apply);
+      } else {
+        setPlayers(apply);
+      }
+    };
+
+    const handleConnected = () => {
+      setIsLive(true);
+      if (hasConnectedRef.current) {
+        void fetchLeaderboard();
+      }
+      hasConnectedRef.current = true;
+    };
     const handleDisconnected = () => setIsLive(false);
 
-    const handlePlayerJoined = (data: PlayerJoinedPayload) => {
-      setPlayers(current => {
-        if (current.some(p => p.sessionId === data.sessionId)) {
-          return current;
-        }
+    const handlePlayerJoined = (data: PlayerJoinedPayload) => dispatch(current => {
+      if (current.some(p => p.sessionId === data.sessionId)) return current;
+      return sortPlayers([...current, {
+        sessionId: data.sessionId,
+        displayName: data.displayName,
+        level: data.level,
+      }]);
+    });
 
-        return sortPlayers([...current, {
-          sessionId: data.sessionId,
-          displayName: data.displayName,
-          level: data.level,
-        }]);
-      });
-    };
+    const handleLevelUpdate = (data: LevelUpdatePayload) => dispatch(current =>
+      sortPlayers(current.map(p =>
+        p.sessionId === data.sessionId ? { ...p, level: data.level } : p
+      ))
+    );
 
-    const handleLevelUpdate = (data: LevelUpdatePayload) => {
-      setPlayers(current => sortPlayers(current.map(p =>
-        p.sessionId === data.sessionId
-          ? { ...p, level: data.level }
-          : p
-      )));
-    };
+    const handlePlayerLeft = (data: PlayerLeftPayload) => dispatch(current =>
+      current.filter(p => p.sessionId !== data.sessionId)
+    );
 
-    const handlePlayerLeft = (data: PlayerLeftPayload) => {
-      setPlayers(current => current.filter(p => p.sessionId !== data.sessionId));
-    };
-
-    const handleChampionAchieved = (data: ChampionAchievedPayload) => {
-      setPlayers(current => sortPlayers(current.map(p =>
-        p.sessionId === data.sessionId
-          ? { ...p, isChampion: true }
-          : p
-      )));
-    };
+    const handleChampionAchieved = (data: ChampionAchievedPayload) => dispatch(current =>
+      sortPlayers(current.map(p =>
+        p.sessionId === data.sessionId ? { ...p, isChampion: true } : p
+      ))
+    );
 
     pusher.connection.bind('connected', handleConnected);
     pusher.connection.bind('disconnected', handleDisconnected);
@@ -159,19 +176,19 @@ export function useDemoLeaderboard(options: UseDemoLeaderboardOptions = {}): Use
       pusher.unsubscribe(CHANNEL);
       setIsLive(false);
     };
-  }, [enabled]);
+  }, [enabled, fetchLeaderboard]);
 
   useEffect(() => {
     if (!enabled) return;
 
     if (!isLive && pollInterval > 0) {
-      pollTimeoutRef.current = setInterval(fetchLeaderboard, pollInterval);
+      pollIntervalRef.current = setInterval(fetchLeaderboard, pollInterval);
     }
 
     return () => {
-      if (pollTimeoutRef.current) {
-        clearInterval(pollTimeoutRef.current);
-        pollTimeoutRef.current = null;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
   }, [enabled, isLive, pollInterval, fetchLeaderboard]);
