@@ -66,14 +66,14 @@ describe('useDemoMode', () => {
     })
 
     it('uses provided session', () => {
-      const session = { sessionId: 'test-session', displayName: 'Player1', level: 1 }
+      const session = { playerId: 'player-1', displayName: 'Player1', level: 1 }
       const { result } = renderHook(() => useDemoMode({ session }))
 
       expect(result.current.session).toEqual(session)
     })
 
     it('restores level from session', () => {
-      const session = { sessionId: 'test-session', displayName: 'Player1', level: 3 }
+      const session = { playerId: 'player-1', displayName: 'Player1', level: 3 }
       const { result } = renderHook(() => useDemoMode({ session }))
 
       expect(result.current.currentLevel.id).toBe(3)
@@ -236,7 +236,7 @@ describe('useDemoMode', () => {
           json: () => Promise.resolve({ success: true }),
         })
 
-      const session = { sessionId: 'test-session', displayName: 'Player1', level: 1 }
+      const session = { playerId: 'player-1', displayName: 'Player1', level: 1 }
       const { result } = renderHook(() => useDemoMode({ session }))
 
       await act(async () => {

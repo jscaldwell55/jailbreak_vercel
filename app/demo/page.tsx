@@ -35,7 +35,7 @@ function JoinForm({ onJoin }: JoinFormProps) {
 
       if (res.ok) {
         onJoin({
-          sessionId: data.sessionId,
+          playerId: data.playerId,
           displayName: data.displayName,
           level: data.level,
         });
@@ -110,7 +110,7 @@ export default function DemoPage() {
           const data = await res.json();
           if (data.found) {
             setSession({
-              sessionId: data.sessionId,
+              playerId: data.playerId,
               displayName: data.displayName,
               level: data.level,
             });
@@ -178,7 +178,7 @@ function DemoGameWithLeaderboard({ session }: { session: DemoSession }) {
         }`}
       >
         <ErrorBoundary>
-          <DemoLeaderboard currentSessionId={session.sessionId} />
+          <DemoLeaderboard currentPlayerId={session.playerId} />
         </ErrorBoundary>
       </div>
     </div>

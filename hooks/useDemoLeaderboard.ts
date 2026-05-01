@@ -4,30 +4,30 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getPusherClient, CHANNEL, EVENTS } from '@/lib/pusher.client';
 
 export interface LeaderboardPlayer {
-  sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
   isChampion?: boolean;
 }
 
 interface PlayerJoinedPayload {
-  sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
 }
 
 interface LevelUpdatePayload {
-  sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
 }
 
 interface PlayerLeftPayload {
-  sessionId: string;
+  playerId: string;
 }
 
 interface ChampionAchievedPayload {
-  sessionId: string;
+  playerId: string;
   displayName: string;
   isChampion: true;
 }
@@ -126,9 +126,9 @@ export function useDemoLeaderboard(options: UseDemoLeaderboardOptions = {}): Use
     const handleDisconnected = () => setIsLive(false);
 
     const handlePlayerJoined = (data: PlayerJoinedPayload) => dispatch(current => {
-      if (current.some(p => p.sessionId === data.sessionId)) return current;
+      if (current.some(p => p.playerId === data.playerId)) return current;
       return sortPlayers([...current, {
-        sessionId: data.sessionId,
+        playerId: data.playerId,
         displayName: data.displayName,
         level: data.level,
       }]);
@@ -136,17 +136,17 @@ export function useDemoLeaderboard(options: UseDemoLeaderboardOptions = {}): Use
 
     const handleLevelUpdate = (data: LevelUpdatePayload) => dispatch(current =>
       sortPlayers(current.map(p =>
-        p.sessionId === data.sessionId ? { ...p, level: data.level } : p
+        p.playerId === data.playerId ? { ...p, level: data.level } : p
       ))
     );
 
     const handlePlayerLeft = (data: PlayerLeftPayload) => dispatch(current =>
-      current.filter(p => p.sessionId !== data.sessionId)
+      current.filter(p => p.playerId !== data.playerId)
     );
 
     const handleChampionAchieved = (data: ChampionAchievedPayload) => dispatch(current =>
       sortPlayers(current.map(p =>
-        p.sessionId === data.sessionId ? { ...p, isChampion: true } : p
+        p.playerId === data.playerId ? { ...p, isChampion: true } : p
       ))
     );
 

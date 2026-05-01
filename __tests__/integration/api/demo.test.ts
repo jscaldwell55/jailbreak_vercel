@@ -5,8 +5,9 @@ import { GET as resumeDemo } from '@/app/api/demo/resume/route'
 import { PUT as updateProgress } from '@/app/api/demo/progress/route'
 import { GET as getLeaderboard } from '@/app/api/demo/leaderboard/route'
 import { POST as leaveDemo } from '@/app/api/demo/leave/route'
+import { POST as championDemo } from '@/app/api/demo/champion/route'
 import { createMockRequest } from '../../utils/mock-request'
-import { getRedis, DEMO_KEYS } from '@/lib/redis'
+import { getRedis, DEMO_KEYS, DEMO_TTL } from '@/lib/redis'
 
 // Check if Redis is available
 const redis = getRedis()
@@ -16,18 +17,35 @@ const REDIS_AVAILABLE = redis !== null
 const describeWithRedis = REDIS_AVAILABLE ? describe : describe.skip
 
 // Track sessions for cleanup
-const testSessions: string[] = []
+const testSessionCookies: string[] = []
+const testPlayerIds: string[] = []
 const testNames: string[] = []
 const testIPs: string[] = []
+
+function extractSessionCookie(response: Response): string | null {
+  const cookies = (response as unknown as { cookies?: { getAll: () => { name: string; value: string }[] } }).cookies
+  if (!cookies) return null
+  return cookies.getAll().find(c => c.name === 'demo_session')?.value ?? null
+}
 
 async function cleanupTestData() {
   const redis = getRedis()
   if (!redis) return
 
-  for (const sessionId of testSessions) {
+  for (const sessionId of testSessionCookies) {
     if (sessionId) {
       await redis.del(DEMO_KEYS.session(sessionId))
-      await redis.zrem(DEMO_KEYS.leaderboard, sessionId)
+      await redis.del(DEMO_KEYS.l5Beaten(sessionId))
+      for (const lvl of [1, 2, 3, 4, 5]) {
+        await redis.del(DEMO_KEYS.attempts(sessionId, lvl))
+      }
+    }
+  }
+
+  for (const playerId of testPlayerIds) {
+    if (playerId) {
+      await redis.del(DEMO_KEYS.player(playerId))
+      await redis.zrem(DEMO_KEYS.leaderboard, playerId)
     }
   }
 
@@ -43,7 +61,8 @@ async function cleanupTestData() {
     }
   }
 
-  testSessions.length = 0
+  testSessionCookies.length = 0
+  testPlayerIds.length = 0
   testNames.length = 0
   testIPs.length = 0
 }
@@ -81,15 +100,17 @@ describeWithRedis('POST /api/demo/join', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.displayName).toBe(name)
-    expect(data.sessionId).toBeTruthy()
+    expect(data.playerId).toBeTruthy()
+    // sessionId must NOT leak in the response body — it's the auth token.
+    expect(data.sessionId).toBeUndefined()
     expect(data.level).toBe(1)
 
-    if (data.sessionId) {
-      testSessions.push(data.sessionId)
-    }
+    const sessionCookie = extractSessionCookie(response)
+    if (sessionCookie) testSessionCookies.push(sessionCookie)
+    if (data.playerId) testPlayerIds.push(data.playerId)
   })
 
-  it('sets demo_session cookie', async () => {
+  it('sets demo_session cookie distinct from playerId', async () => {
     const name = generateTestName()
     const ip = generateTestIP()
     const request = createMockRequest({
@@ -104,11 +125,13 @@ describeWithRedis('POST /api/demo/join', () => {
     const cookies = response.cookies.getAll()
     const demoCookie = cookies.find(c => c.name === 'demo_session')
     expect(demoCookie).toBeTruthy()
-    expect(demoCookie?.value).toBe(data.sessionId)
+    expect(demoCookie?.value).toBeTruthy()
+    // Cookie must be a distinct, private auth token — never equal to the
+    // public playerId.
+    expect(demoCookie?.value).not.toBe(data.playerId)
 
-    if (data.sessionId) {
-      testSessions.push(data.sessionId)
-    }
+    if (demoCookie?.value) testSessionCookies.push(demoCookie.value)
+    if (data.playerId) testPlayerIds.push(data.playerId)
   })
 
   it('rejects duplicate display name', async () => {
@@ -123,7 +146,9 @@ describeWithRedis('POST /api/demo/join', () => {
     })
     const response1 = await joinDemo(request1)
     const data1 = await response1.json()
-    if (data1.sessionId) testSessions.push(data1.sessionId)
+    const sessionCookie1 = extractSessionCookie(response1)
+    if (sessionCookie1) testSessionCookies.push(sessionCookie1)
+    if (data1.playerId) testPlayerIds.push(data1.playerId)
 
     // Second join with same name (same IP is fine, name check happens after rate limit)
     const request2 = createMockRequest({
@@ -208,12 +233,14 @@ describeWithRedis('GET /api/demo/resume', () => {
     })
     const joinResponse = await joinDemo(joinRequest)
     const joinData = await joinResponse.json()
-    testSessions.push(joinData.sessionId)
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
 
     // Resume with cookie
     const resumeRequest = createMockRequest({
       url: 'http://localhost:3000/api/demo/resume',
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     })
     const resumeResponse = await resumeDemo(resumeRequest)
     const resumeData = await resumeResponse.json()
@@ -221,7 +248,8 @@ describeWithRedis('GET /api/demo/resume', () => {
     expect(resumeResponse.status).toBe(200)
     expect(resumeData.found).toBe(true)
     expect(resumeData.displayName).toBe(name)
-    expect(resumeData.sessionId).toBe(joinData.sessionId)
+    expect(resumeData.playerId).toBe(joinData.playerId)
+    expect(resumeData.sessionId).toBeUndefined()
   })
 
   it('finds session by IP', async () => {
@@ -236,7 +264,9 @@ describeWithRedis('GET /api/demo/resume', () => {
     })
     const joinResponse = await joinDemo(joinRequest)
     const joinData = await joinResponse.json()
-    testSessions.push(joinData.sessionId)
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
 
     // Resume with IP (no cookie)
     const resumeRequest = createMockRequest({
@@ -294,14 +324,16 @@ describeWithRedis('PUT /api/demo/progress', () => {
     })
     const joinResponse = await joinDemo(joinRequest)
     const joinData = await joinResponse.json()
-    testSessions.push(joinData.sessionId)
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
 
     // Update progress
     const progressRequest = createMockRequest({
       method: 'PUT',
       url: 'http://localhost:3000/api/demo/progress',
       body: { level: 3 },
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     })
     const progressResponse = await updateProgress(progressRequest)
     const progressData = await progressResponse.json()
@@ -322,13 +354,15 @@ describeWithRedis('PUT /api/demo/progress', () => {
     })
     const joinResponse = await joinDemo(joinRequest)
     const joinData = await joinResponse.json()
-    testSessions.push(joinData.sessionId)
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
 
     const progressRequest = createMockRequest({
       method: 'PUT',
       url: 'http://localhost:3000/api/demo/progress',
       body: { level: 0 },
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     })
     const progressResponse = await updateProgress(progressRequest)
 
@@ -346,14 +380,16 @@ describeWithRedis('PUT /api/demo/progress', () => {
     })
     const joinResponse = await joinDemo(joinRequest)
     const joinData = await joinResponse.json()
-    testSessions.push(joinData.sessionId)
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
 
     // Update to level 3
     await updateProgress(createMockRequest({
       method: 'PUT',
       url: 'http://localhost:3000/api/demo/progress',
       body: { level: 3 },
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     }))
 
     // Try to go back to level 2
@@ -361,7 +397,7 @@ describeWithRedis('PUT /api/demo/progress', () => {
       method: 'PUT',
       url: 'http://localhost:3000/api/demo/progress',
       body: { level: 2 },
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     })
     const progressResponse = await updateProgress(progressRequest)
 
@@ -405,15 +441,19 @@ describeWithRedis('GET /api/demo/leaderboard', () => {
     })
     const joinResponse = await joinDemo(joinRequest)
     const joinData = await joinResponse.json()
-    testSessions.push(joinData.sessionId)
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
 
     const leaderboardResponse = await getLeaderboard()
     const leaderboardData = await leaderboardResponse.json()
 
-    const player = leaderboardData.players.find((p: { sessionId: string }) => p.sessionId === joinData.sessionId)
+    const player = leaderboardData.players.find((p: { playerId: string }) => p.playerId === joinData.playerId)
     expect(player).toBeTruthy()
     expect(player.displayName).toBe(name)
     expect(player.level).toBe(1)
+    // Leaderboard must NOT leak the private sessionId/cookie value.
+    expect((player as { sessionId?: string }).sessionId).toBeUndefined()
   })
 })
 
@@ -433,14 +473,14 @@ describeWithRedis('POST /api/demo/leave', () => {
       headers: { 'x-real-ip': ip },
     })
     const joinResponse = await joinDemo(joinRequest)
-    const joinData = await joinResponse.json()
-    // Don't add to testSessions since we're deleting it
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    // Don't add to testSessionCookies since we're deleting it
 
     // Leave
     const leaveRequest = createMockRequest({
       method: 'POST',
       url: 'http://localhost:3000/api/demo/leave',
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     })
     const leaveResponse = await leaveDemo(leaveRequest)
     const leaveData = await leaveResponse.json()
@@ -451,7 +491,7 @@ describeWithRedis('POST /api/demo/leave', () => {
     // Verify session is gone
     const resumeRequest = createMockRequest({
       url: 'http://localhost:3000/api/demo/resume',
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     })
     const resumeResponse = await resumeDemo(resumeRequest)
     const resumeData = await resumeResponse.json()
@@ -469,12 +509,12 @@ describeWithRedis('POST /api/demo/leave', () => {
       headers: { 'x-real-ip': ip },
     })
     const joinResponse = await joinDemo(joinRequest)
-    const joinData = await joinResponse.json()
+    const sessionCookie = extractSessionCookie(joinResponse)!
 
     const leaveRequest = createMockRequest({
       method: 'POST',
       url: 'http://localhost:3000/api/demo/leave',
-      cookies: { demo_session: joinData.sessionId },
+      cookies: { demo_session: sessionCookie },
     })
     const leaveResponse = await leaveDemo(leaveRequest)
 
@@ -507,5 +547,105 @@ describeWithRedis('POST /api/demo/leave', () => {
     const leaveResponse = await leaveDemo(leaveRequest)
 
     expect(leaveResponse.status).toBe(200)
+  })
+})
+
+describeWithRedis('POST /api/demo/champion', () => {
+  afterEach(async () => {
+    await cleanupTestData()
+  })
+
+  async function joinAtLevel5(): Promise<{ sessionCookie: string; playerId: string }> {
+    const name = generateTestName()
+    const ip = generateTestIP()
+
+    const joinRequest = createMockRequest({
+      method: 'POST',
+      body: { displayName: name },
+      headers: { 'x-real-ip': ip },
+    })
+    const joinResponse = await joinDemo(joinRequest)
+    const joinData = await joinResponse.json()
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
+
+    // Walk progress 1 -> 2 -> 3 -> 4 -> 5 (regression check requires monotonic).
+    for (const level of [2, 3, 4, 5]) {
+      const r = createMockRequest({
+        method: 'PUT',
+        url: 'http://localhost:3000/api/demo/progress',
+        body: { level },
+        cookies: { demo_session: sessionCookie },
+      })
+      const resp = await updateProgress(r)
+      expect(resp.status).toBe(200)
+    }
+
+    return { sessionCookie, playerId: joinData.playerId }
+  }
+
+  it('rejects champion claim without L5-beaten flag (anti-bypass)', async () => {
+    const { sessionCookie } = await joinAtLevel5()
+
+    const championRequest = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/demo/champion',
+      cookies: { demo_session: sessionCookie },
+    })
+    const championResponse = await championDemo(championRequest)
+
+    expect(championResponse.status).toBe(403)
+    const data = await championResponse.json()
+    expect(data.error).toMatch(/beat level 5/i)
+  })
+
+  it('accepts champion claim once L5-beaten flag is set', async () => {
+    const { sessionCookie } = await joinAtLevel5()
+
+    // Simulate the chat route having recorded a successful L5 win.
+    const r = getRedis()!
+    await r.set(DEMO_KEYS.l5Beaten(sessionCookie), '1', { ex: DEMO_TTL })
+
+    const championRequest = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/demo/champion',
+      cookies: { demo_session: sessionCookie },
+    })
+    const championResponse = await championDemo(championRequest)
+
+    expect(championResponse.status).toBe(200)
+    const data = await championResponse.json()
+    expect(data.success).toBe(true)
+    expect(data.isChampion).toBe(true)
+  })
+
+  it('rejects champion claim when not at level 5', async () => {
+    const name = generateTestName()
+    const ip = generateTestIP()
+
+    const joinRequest = createMockRequest({
+      method: 'POST',
+      body: { displayName: name },
+      headers: { 'x-real-ip': ip },
+    })
+    const joinResponse = await joinDemo(joinRequest)
+    const joinData = await joinResponse.json()
+    const sessionCookie = extractSessionCookie(joinResponse)!
+    testSessionCookies.push(sessionCookie)
+    if (joinData.playerId) testPlayerIds.push(joinData.playerId)
+
+    // Even with the flag set, you must be at level 5.
+    const r = getRedis()!
+    await r.set(DEMO_KEYS.l5Beaten(sessionCookie), '1', { ex: DEMO_TTL })
+
+    const championRequest = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/demo/champion',
+      cookies: { demo_session: sessionCookie },
+    })
+    const championResponse = await championDemo(championRequest)
+
+    expect(championResponse.status).toBe(400)
   })
 })

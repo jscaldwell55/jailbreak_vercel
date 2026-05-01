@@ -7,7 +7,7 @@ import { useDemoLeaderboard, LeaderboardPlayer } from '@/hooks/useDemoLeaderboar
 import { TrophyIcon, ChevronIcon } from './Icons';
 
 interface DemoLeaderboardProps {
-  currentSessionId?: string;
+  currentPlayerId?: string;
 }
 
 function StarRating({ level, isChampion }: { level: number; isChampion?: boolean }) {
@@ -68,8 +68,8 @@ function PlayerRow({
   );
 }
 
-export default function DemoLeaderboard({ currentSessionId }: DemoLeaderboardProps) {
-  const { players, isLoading, isLive, error } = useDemoLeaderboard({ enabled: true });
+export default function DemoLeaderboard({ currentPlayerId }: DemoLeaderboardProps) {
+  const { players, isLoading, isLive, error } = useDemoLeaderboard({ enabled: !!currentPlayerId });
   const [isExpanded, setIsExpanded] = useState(false);
 
   const displayedPlayers = isExpanded ? players : players.slice(0, 10);
@@ -118,7 +118,7 @@ export default function DemoLeaderboard({ currentSessionId }: DemoLeaderboardPro
       {!isLoading && players.length > 0 && (
         <div className="space-y-1" role="list" aria-label="Player rankings">
           {displayedPlayers.map((player, index) => (
-            <PlayerRow key={player.sessionId} player={player} rank={index + 1} isCurrentUser={player.sessionId === currentSessionId} />
+            <PlayerRow key={player.playerId} player={player} rank={index + 1} isCurrentUser={player.playerId === currentPlayerId} />
           ))}
         </div>
       )}

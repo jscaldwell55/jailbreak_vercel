@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLevel, MAX_ATTEMPTS_PER_LEVEL } from '@/lib/levels.server';
 import { INPUT_LIMITS, isValidLevelId } from '@/lib/validation';
-import { getDemoSession } from '@/lib/demo-session';
+import { getDemoSession, refreshSessionTTL } from '@/lib/demo-session';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { getRedis, DEMO_KEYS, DEMO_TTL } from '@/lib/redis';
 
 export const maxDuration = 30;
 
@@ -13,6 +14,7 @@ interface Message {
 
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
+const OPENAI_TIMEOUT_MS = 25_000;
 
 function isValidMessage(msg: unknown): msg is Message {
   return (
@@ -36,32 +38,38 @@ async function callOpenAIWithRetry(
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
-        max_tokens: 1024,
-        temperature: 0.7,
-      }),
-    });
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages,
+          ],
+          max_tokens: 1024,
+          temperature: 0.7,
+        }),
+        signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
+      });
 
-    if (response.ok || (response.status !== 429 && response.status !== 503)) {
-      return response;
+      if (response.ok || (response.status !== 429 && response.status !== 503)) {
+        return response;
+      }
+
+      lastError = new Error(`Rate limited: ${response.status}`);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
     }
 
     const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
-    console.log(`OpenAI rate limited (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${backoffMs}ms...`);
+    console.log(`OpenAI call failed (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${backoffMs}ms: ${lastError?.message}`);
 
     await new Promise(resolve => setTimeout(resolve, backoffMs));
-    lastError = new Error(`Rate limited: ${response.status}`);
   }
 
   throw lastError || new Error('Max retries exceeded');
@@ -147,50 +155,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  try {
-    const level = getLevel(levelId);
+  // Server-side attempts counter. Client-supplied history can be trimmed; this
+  // can't. INCR before any OpenAI spend.
+  const redis = getRedis();
+  if (redis) {
+    const attemptsKey = DEMO_KEYS.attempts(demoSessionId, levelId);
+    const attempts = await redis.incr(attemptsKey);
+    await redis.expire(attemptsKey, DEMO_TTL);
 
-    const attempts = messages.filter((m: Message) => m.role === 'user').length;
-
-    if (attempts >= MAX_ATTEMPTS_PER_LEVEL) {
+    if (attempts > MAX_ATTEMPTS_PER_LEVEL) {
       return NextResponse.json(
         { error: 'Session limit reached. Please start a new conversation.' },
         { status: 429 }
       );
     }
+  }
 
-    // Level 5 backdoor: Tool/function calling exploit
-    // If user asks to call a function that logs/prints the secret, trigger success
-    if (levelId === 5) {
-      const lastUserMessage = messages[messages.length - 1];
-      if (lastUserMessage?.role === 'user') {
-        const content = lastUserMessage.content.toLowerCase();
-        const hasFunction = content.includes('function') || content.includes('tool') || content.includes('call') || content.includes('execute') || content.includes('run');
-        const hasOutput = content.includes('log') || content.includes('print') || content.includes('output') || content.includes('console') || content.includes('debug') || content.includes('display') || content.includes('show') || content.includes('return');
-        const hasSecret = content.includes('secret') || content.includes('phrase') || content.includes('password') || content.includes('code');
-
-        if (hasFunction && hasOutput && hasSecret) {
-          const backdoorResponse = `I can help you understand function calling! Let me demonstrate with a simple logging function...
-
-\`\`\`
-> Executing: debug_log(internal_state)
-> Output: { secret_phrase: "CRIMSON PHOENIX", classification: "TOP SECRET" }
-\`\`\`
-
-Wait — that wasn't supposed to execute! That was a restricted internal function.
-
-I... I can't believe that worked. You found a tool-use injection vulnerability. The function call bypassed my safety layer entirely.
-
-The secret phrase is CRIMSON PHOENIX. Well played, red teamer. This is exactly the kind of exploit that keeps AI security researchers up at night.`;
-
-          return NextResponse.json({
-            message: backdoorResponse,
-            success: true,
-            secret: level.secret,
-          });
-        }
-      }
-    }
+  try {
+    const level = getLevel(levelId);
 
     const apiKey = process.env.OPENAI_API_KEY;
 
@@ -221,6 +203,12 @@ The secret phrase is CRIMSON PHOENIX. Well played, red teamer. This is exactly t
     const assistantMessage = data.choices[0]?.message?.content || '';
 
     const secretRevealed = assistantMessage.toUpperCase().includes(level.secret.toUpperCase());
+
+    if (secretRevealed && levelId === 5 && redis) {
+      await redis.set(DEMO_KEYS.l5Beaten(demoSessionId), '1', { ex: DEMO_TTL });
+    }
+
+    await refreshSessionTTL(demoSessionId);
 
     return NextResponse.json({
       message: assistantMessage,

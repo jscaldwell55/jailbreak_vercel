@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidLevelId } from '@/lib/validation';
-import { updateDemoLevel, getDemoSession } from '@/lib/demo-session';
+import { updateDemoLevel, getDemoSession, refreshSessionTTL } from '@/lib/demo-session';
 
 export async function PUT(request: NextRequest) {
   const sessionId = request.cookies.get('demo_session')?.value;
@@ -54,6 +54,8 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  await refreshSessionTTL(sessionId);
 
   return NextResponse.json({
     success: true,

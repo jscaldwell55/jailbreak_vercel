@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       // Session cookie is valid, return it
       return NextResponse.json({
         found: true,
-        sessionId: existingSession.sessionId,
+        playerId: existingSession.playerId,
         displayName: existingSession.displayName,
         level: existingSession.level,
         source: 'cookie',
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   // Found session by IP - restore the demo session cookie.
   const response = NextResponse.json({
     found: true,
-    sessionId: session.sessionId,
+    playerId: session.playerId,
     displayName: session.displayName,
     level: session.level,
     source: 'ip',

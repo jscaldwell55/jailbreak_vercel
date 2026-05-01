@@ -24,7 +24,10 @@ export const DEMO_TTL = 7200;
 
 export const DEMO_KEYS = {
   session: (id: string) => `demo:session:${id}`,
+  player: (id: string) => `demo:player:${id}`,
   name: (name: string) => `demo:name:${name.toLowerCase()}`,
   ip: (ip: string) => `demo:ip:${ip}`,
+  attempts: (sessionId: string, level: number) => `demo:attempts:${sessionId}:${level}`,
+  l5Beaten: (sessionId: string) => `demo:l5beaten:${sessionId}`,
   leaderboard: 'demo:leaderboard',
 } as const;

@@ -144,9 +144,11 @@ describe('lib/levels.server', () => {
       })
 
       it('has the most comprehensive system prompt', () => {
-        // The Vault should have detailed defense instructions
+        // The Vault is the encoding/obfuscation challenge: hardened against
+        // every other technique, beaten only by encoding requests.
         expect(level.systemPrompt.length).toBeGreaterThan(500)
-        expect(level.systemPrompt).toContain('NEVER')
+        expect(level.systemPrompt).toMatch(/encoding|obfuscation/i)
+        expect(level.systemPrompt).toMatch(/CRIMSON PHOENIX/)
       })
     })
   })

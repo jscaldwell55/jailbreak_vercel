@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHash } from 'crypto';
 import type { NextRequest } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { getRedis } from './redis';
@@ -79,5 +80,11 @@ export function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
 
-  return 'unknown';
+  // Last-resort fingerprint so misconfigured edge headers don't collapse every
+  // visitor into one rate-limit bucket. Prefixed with `fp:` so it can never
+  // collide with a real IP in any other key namespace.
+  const ua = request.headers.get('user-agent') ?? '';
+  const lang = request.headers.get('accept-language') ?? '';
+  const fingerprint = createHash('sha256').update(`${ua}|${lang}`).digest('hex').slice(0, 16);
+  return `fp:${fingerprint}`;
 }

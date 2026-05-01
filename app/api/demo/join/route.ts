@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json({
     success: true,
-    sessionId: session.sessionId,
+    playerId: session.playerId,
     displayName: session.displayName,
     level: session.level,
   });

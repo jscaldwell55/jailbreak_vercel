@@ -18,9 +18,9 @@ describe('useDemoLeaderboard', () => {
   const originalFetch = global.fetch
 
   const mockPlayers = [
-    { sessionId: 'session-1', displayName: 'Player1', level: 3 },
-    { sessionId: 'session-2', displayName: 'Player2', level: 5 },
-    { sessionId: 'session-3', displayName: 'Player3', level: 1 },
+    { playerId: 'player-1', displayName: 'Player1', level: 3 },
+    { playerId: 'player-2', displayName: 'Player2', level: 5 },
+    { playerId: 'player-3', displayName: 'Player3', level: 1 },
   ]
 
   const channel = {
@@ -109,7 +109,7 @@ describe('useDemoLeaderboard', () => {
       expect(result.current.players.length).toBeGreaterThan(0)
     })
 
-    const newPlayers = [{ sessionId: 'new', displayName: 'New', level: 5 }]
+    const newPlayers = [{ playerId: 'new-player', displayName: 'New', level: 5 }]
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ players: newPlayers, total: 1 }),

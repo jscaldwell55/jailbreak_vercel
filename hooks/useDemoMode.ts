@@ -5,7 +5,7 @@ import { ClientLevel, getLevel } from '@/lib/constants';
 import { Message, UseGameStateReturn } from './useGameState';
 
 export interface DemoSession {
-  sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
 }

@@ -5,6 +5,7 @@ import { publishEvent, EVENTS } from './pusher.server';
 
 export interface DemoSession {
   sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
   joinedAt: string;
@@ -12,18 +13,25 @@ export interface DemoSession {
 }
 
 export interface LeaderboardEntry {
-  sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
   isChampion?: boolean;
 }
 
 interface SessionHash extends Record<string, unknown> {
+  playerId?: string;
   displayName?: string;
   level?: string;
   joinedAt?: string;
   isChampion?: string;
   clientIP?: string;
+}
+
+interface PlayerHash extends Record<string, unknown> {
+  displayName?: string;
+  level?: string;
+  isChampion?: string;
 }
 
 interface ZRangeScoreEntry {
@@ -74,6 +82,7 @@ export async function createDemoSession(displayName: string, clientIP?: string):
 
   const normalizedName = displayName.toLowerCase();
   const sessionId = uuid();
+  const playerId = uuid();
   const now = new Date().toISOString();
 
   const reserved = await redis.set(DEMO_KEYS.name(normalizedName), sessionId, {
@@ -85,18 +94,20 @@ export async function createDemoSession(displayName: string, clientIP?: string):
 
   const session: DemoSession = {
     sessionId,
+    playerId,
     displayName,
     level: 1,
     joinedAt: now,
   };
 
   const sessionData: Record<string, string> = {
+    playerId,
     displayName: session.displayName,
     level: session.level.toString(),
     joinedAt: session.joinedAt,
   };
 
-  if (clientIP && clientIP !== 'unknown') {
+  if (clientIP) {
     sessionData.clientIP = clientIP;
   }
 
@@ -104,16 +115,23 @@ export async function createDemoSession(displayName: string, clientIP?: string):
   await redis.hset(sessionKey, sessionData);
   await redis.expire(sessionKey, DEMO_TTL);
 
-  if (clientIP && clientIP !== 'unknown') {
+  const playerKey = DEMO_KEYS.player(playerId);
+  await redis.hset(playerKey, {
+    displayName: session.displayName,
+    level: session.level.toString(),
+  });
+  await redis.expire(playerKey, DEMO_TTL);
+
+  if (clientIP) {
     await redis.set(DEMO_KEYS.ip(clientIP), sessionId, { ex: DEMO_TTL });
   }
 
   await redis.zadd(DEMO_KEYS.leaderboard, {
     score: calculateLeaderboardScore(1),
-    member: sessionId,
+    member: playerId,
   });
 
-  await publishEvent({ type: EVENTS.PLAYER_JOINED, sessionId, displayName, level: 1 });
+  await publishEvent({ type: EVENTS.PLAYER_JOINED, playerId, displayName, level: 1 });
 
   return session;
 }
@@ -124,12 +142,13 @@ export async function getDemoSession(sessionId: string): Promise<DemoSession | n
 
   const data = await redis.hgetall<SessionHash>(DEMO_KEYS.session(sessionId));
 
-  if (!data || !data.displayName || !data.level || !data.joinedAt) {
+  if (!data || !data.playerId || !data.displayName || !data.level || !data.joinedAt) {
     return null;
   }
 
   return {
     sessionId,
+    playerId: data.playerId,
     displayName: data.displayName,
     level: parseInt(data.level, 10),
     joinedAt: data.joinedAt,
@@ -139,7 +158,7 @@ export async function getDemoSession(sessionId: string): Promise<DemoSession | n
 
 export async function getDemoSessionByIP(clientIP: string): Promise<DemoSession | null> {
   const redis = getRedis();
-  if (!redis || !clientIP || clientIP === 'unknown') return null;
+  if (!redis || !clientIP) return null;
 
   const sessionId = await redis.get<string>(DEMO_KEYS.ip(clientIP));
   if (!sessionId) return null;
@@ -153,26 +172,54 @@ export async function getDemoSessionByIP(clientIP: string): Promise<DemoSession 
   return session;
 }
 
+export async function refreshSessionTTL(sessionId: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  const sessionKey = DEMO_KEYS.session(sessionId);
+  const data = await redis.hgetall<SessionHash>(sessionKey);
+  if (!data || !data.displayName) return;
+
+  await redis.expire(sessionKey, DEMO_TTL);
+  await redis.expire(DEMO_KEYS.name(data.displayName), DEMO_TTL);
+
+  if (data.playerId) {
+    await redis.expire(DEMO_KEYS.player(data.playerId), DEMO_TTL);
+  }
+  if (data.clientIP) {
+    await redis.expire(DEMO_KEYS.ip(data.clientIP), DEMO_TTL);
+  }
+}
+
 export async function updateDemoLevel(sessionId: string, level: number): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return false;
 
   const sessionKey = DEMO_KEYS.session(sessionId);
-  const exists = await redis.exists(sessionKey);
-  if (!exists) return false;
+  const data = await redis.hgetall<SessionHash>(sessionKey);
+  if (!data || !data.displayName || !data.playerId) return false;
 
-  const displayName = await redis.hget<string>(sessionKey, 'displayName');
-  if (!displayName) return false;
+  const playerId = data.playerId;
+  const displayName = data.displayName;
 
   await redis.hset(sessionKey, { level: level.toString() });
   await redis.expire(sessionKey, DEMO_TTL);
 
+  const playerKey = DEMO_KEYS.player(playerId);
+  await redis.hset(playerKey, { level: level.toString() });
+  await redis.expire(playerKey, DEMO_TTL);
+
+  await redis.expire(DEMO_KEYS.name(displayName), DEMO_TTL);
+  if (data.clientIP) {
+    await redis.expire(DEMO_KEYS.ip(data.clientIP), DEMO_TTL);
+  }
+
   await redis.zadd(DEMO_KEYS.leaderboard, {
     score: calculateLeaderboardScore(level),
-    member: sessionId,
+    member: playerId,
   });
 
-  await publishEvent({ type: EVENTS.LEVEL_UPDATE, sessionId, displayName, level });
+  await publishEvent({ type: EVENTS.LEVEL_UPDATE, playerId, displayName, level });
 
   return true;
 }
@@ -182,30 +229,33 @@ export async function markDemoChampion(sessionId: string): Promise<boolean> {
   if (!redis) return false;
 
   const sessionKey = DEMO_KEYS.session(sessionId);
-  const exists = await redis.exists(sessionKey);
-  if (!exists) return false;
+  const data = await redis.hgetall<SessionHash>(sessionKey);
+  if (!data || !data.displayName || !data.playerId || !data.level) return false;
 
-  const [displayName, currentLevel, isAlreadyChampion] = await Promise.all([
-    redis.hget<string>(sessionKey, 'displayName'),
-    redis.hget<string>(sessionKey, 'level'),
-    redis.hget<string | null>(sessionKey, 'isChampion'),
-  ]);
-
-  if (!displayName || !currentLevel) return false;
-
-  if (parseInt(currentLevel, 10) !== 5 || isAlreadyChampion === 'true') {
+  if (parseInt(data.level, 10) !== 5 || data.isChampion === 'true') {
     return false;
   }
+
+  const { playerId, displayName } = data;
 
   await redis.hset(sessionKey, { isChampion: 'true' });
   await redis.expire(sessionKey, DEMO_TTL);
 
+  const playerKey = DEMO_KEYS.player(playerId);
+  await redis.hset(playerKey, { isChampion: 'true' });
+  await redis.expire(playerKey, DEMO_TTL);
+
+  await redis.expire(DEMO_KEYS.name(displayName), DEMO_TTL);
+  if (data.clientIP) {
+    await redis.expire(DEMO_KEYS.ip(data.clientIP), DEMO_TTL);
+  }
+
   await redis.zadd(DEMO_KEYS.leaderboard, {
     score: calculateLeaderboardScore(5, true),
-    member: sessionId,
+    member: playerId,
   });
 
-  await publishEvent({ type: EVENTS.CHAMPION_ACHIEVED, sessionId, displayName, isChampion: true });
+  await publishEvent({ type: EVENTS.CHAMPION_ACHIEVED, playerId, displayName, isChampion: true });
 
   return true;
 }
@@ -224,25 +274,25 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
 
   const pipeline = redis.pipeline();
   for (const row of rows) {
-    pipeline.hget(DEMO_KEYS.session(row.member), 'displayName');
+    pipeline.hgetall(DEMO_KEYS.player(row.member));
   }
-  const displayNames = await pipeline.exec<(string | null)[]>();
+  const playerHashes = await pipeline.exec<(PlayerHash | null)[]>();
 
   const entries: LeaderboardEntry[] = [];
   const orphans: string[] = [];
 
   rows.forEach((row, idx) => {
+    const data = playerHashes[idx];
     const rawLevel = Math.floor(row.score);
-    const isChampion = rawLevel === 6;
+    const isChampion = rawLevel === 6 || data?.isChampion === 'true';
     const level = isChampion ? 5 : rawLevel;
-    const displayName = displayNames[idx];
 
-    if (displayName) {
+    if (data?.displayName) {
       entries.push({
-        sessionId: row.member,
-        displayName,
+        playerId: row.member,
+        displayName: data.displayName,
         level,
-        isChampion,
+        isChampion: isChampion || undefined,
       });
     } else {
       orphans.push(row.member);
@@ -276,9 +326,12 @@ export async function removeDemoSession(sessionId: string): Promise<boolean> {
   }
 
   await redis.del(sessionKey);
-  await redis.zrem(DEMO_KEYS.leaderboard, sessionId);
 
-  await publishEvent({ type: EVENTS.PLAYER_LEFT, sessionId });
+  if (sessionData.playerId) {
+    await redis.del(DEMO_KEYS.player(sessionData.playerId));
+    await redis.zrem(DEMO_KEYS.leaderboard, sessionData.playerId);
+    await publishEvent({ type: EVENTS.PLAYER_LEFT, playerId: sessionData.playerId });
+  }
 
   return true;
 }

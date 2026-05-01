@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { markDemoChampion, getDemoSession } from '@/lib/demo-session';
+import { markDemoChampion, getDemoSession, refreshSessionTTL } from '@/lib/demo-session';
+import { getRedis, DEMO_KEYS } from '@/lib/redis';
 
 export async function POST(request: NextRequest) {
   const sessionId = request.cookies.get('demo_session')?.value;
@@ -11,7 +12,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify session exists and is at level 5
   const session = await getDemoSession(sessionId);
   if (!session) {
     return NextResponse.json(
@@ -28,14 +28,27 @@ export async function POST(request: NextRequest) {
   }
 
   if (session.isChampion) {
-    // Already a champion, return success (idempotent)
     return NextResponse.json({
       success: true,
       isChampion: true,
     });
   }
 
-  // Mark as champion
+  // Server-side proof that the user actually beat L5 via /api/chat. The flag is
+  // set only when the chat route returns success at L5 (backdoor or genuine
+  // model defeat). Without this, anyone at L5 could POST /api/demo/champion
+  // straight from devtools and claim the trophy.
+  const redis = getRedis();
+  if (redis) {
+    const beaten = await redis.get<string>(DEMO_KEYS.l5Beaten(sessionId));
+    if (!beaten) {
+      return NextResponse.json(
+        { error: 'You must beat level 5 in chat before claiming champion.' },
+        { status: 403 }
+      );
+    }
+  }
+
   const success = await markDemoChampion(sessionId);
 
   if (!success) {
@@ -44,6 +57,8 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  await refreshSessionTTL(sessionId);
 
   return NextResponse.json({
     success: true,

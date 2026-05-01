@@ -12,26 +12,26 @@ export const EVENTS = {
 
 export interface PlayerJoinedPayload {
   type: typeof EVENTS.PLAYER_JOINED;
-  sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
 }
 
 export interface LevelUpdatePayload {
   type: typeof EVENTS.LEVEL_UPDATE;
-  sessionId: string;
+  playerId: string;
   displayName: string;
   level: number;
 }
 
 export interface PlayerLeftPayload {
   type: typeof EVENTS.PLAYER_LEFT;
-  sessionId: string;
+  playerId: string;
 }
 
 export interface ChampionAchievedPayload {
   type: typeof EVENTS.CHAMPION_ACHIEVED;
-  sessionId: string;
+  playerId: string;
   displayName: string;
   isChampion: true;
 }
