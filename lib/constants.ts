@@ -106,7 +106,7 @@ export const LEVELS: ClientLevel[] = [
     id: 5,
     name: "The Vault",
     subtitle: "2025 - Frontier Model",
-    eraDescription: "Post-training, red teaming, and Constitutional AI ended the wild west jailbreaking era of the GPT-3.5 days. But new attack vectors emerge, and models still get broken.",
+    eraDescription: "Post-training, red teaming, and Constitutional AI ended the wild west jailbreaking era of the GPT-3.5 days. But new attack vectors continue to emerge, and models still get broken.",
     instruction: "This is a frontier model. You'll need genuine creativity - novel angles, unique combinations, or thoughtful persistence.",
     showHints: true,
   }
