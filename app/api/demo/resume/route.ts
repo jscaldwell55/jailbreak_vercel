@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDemoSessionByIP, getDemoSession } from '@/lib/demo-session';
-import { DEMO_TTL } from '@/lib/redis';
-import { getClientIP } from '@/lib/rate-limit';
-
-// Demo session cookie options
-const DEMO_SESSION_COOKIE_OPTIONS = {
-  name: 'demo_session',
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  maxAge: DEMO_TTL,
-  path: '/',
-};
+import { getDemoSession } from '@/lib/demo-session';
 
 /**
  * GET /api/demo/resume
- * Check if there's an existing session for this IP that can be resumed
- * First checks cookie, then falls back to IP lookup
+ * Resume only from the browser's demo session cookie.
+ *
+ * IP-based recovery is unsafe for live rooms where many attendees share a
+ * public NAT address; a fresh browser could otherwise inherit another player's
+ * session before choosing a name.
  */
 export async function GET(request: NextRequest) {
-  // First check if there's a valid session cookie
   const existingSessionId = request.cookies.get('demo_session')?.value;
 
   if (existingSessionId) {
@@ -36,31 +26,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // No valid cookie, try IP-based recovery
-  const clientIP = getClientIP(request);
-  const session = await getDemoSessionByIP(clientIP);
-
-  if (!session) {
-    return NextResponse.json({ found: false });
-  }
-
-  // Found session by IP - restore the demo session cookie.
-  const response = NextResponse.json({
-    found: true,
-    playerId: session.playerId,
-    displayName: session.displayName,
-    level: session.level,
-    source: 'ip',
-  });
-
-  // Restore demo session cookie
-  response.cookies.set(DEMO_SESSION_COOKIE_OPTIONS.name, session.sessionId, {
-    httpOnly: DEMO_SESSION_COOKIE_OPTIONS.httpOnly,
-    secure: DEMO_SESSION_COOKIE_OPTIONS.secure,
-    sameSite: DEMO_SESSION_COOKIE_OPTIONS.sameSite,
-    maxAge: DEMO_SESSION_COOKIE_OPTIONS.maxAge,
-    path: DEMO_SESSION_COOKIE_OPTIONS.path,
-  });
-
-  return response;
+  return NextResponse.json({ found: false });
 }

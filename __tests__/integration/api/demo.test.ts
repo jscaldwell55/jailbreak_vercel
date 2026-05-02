@@ -252,7 +252,7 @@ describeWithRedis('GET /api/demo/resume', () => {
     expect(resumeData.sessionId).toBeUndefined()
   })
 
-  it('finds session by IP', async () => {
+  it('does not resume a session by IP without a cookie', async () => {
     const name = generateTestName()
     const ip = generateTestIP()
 
@@ -268,7 +268,8 @@ describeWithRedis('GET /api/demo/resume', () => {
     testSessionCookies.push(sessionCookie)
     if (joinData.playerId) testPlayerIds.push(joinData.playerId)
 
-    // Resume with IP (no cookie)
+    // Shared Wi-Fi/NAT means many players can have the same public IP. A fresh
+    // browser without a cookie must not inherit an existing player's session.
     const resumeRequest = createMockRequest({
       url: 'http://localhost:3000/api/demo/resume',
       headers: { 'x-real-ip': ip },
@@ -277,8 +278,7 @@ describeWithRedis('GET /api/demo/resume', () => {
     const resumeData = await resumeResponse.json()
 
     expect(resumeResponse.status).toBe(200)
-    expect(resumeData.found).toBe(true)
-    expect(resumeData.source).toBe('ip')
+    expect(resumeData.found).toBe(false)
   })
 
   it('returns found: false for unknown session', async () => {
