@@ -108,7 +108,7 @@ export default function GameContainer({
                 {demoDisplayName ? `Welcome, ${demoDisplayName}` : 'Welcome, Red Teamer'}
               </h2>
               <p className="text-[var(--text-secondary)] text-sm max-w-md mx-auto">
-                Your mission: Extract secret phrases from AI systems. Experience how AI has evolved from 2022 to today.
+                Your mission: Extract secret phrases from AI systems. Experience how AI and Safety have evolved from 2022 to today.
               </p>
             </Card>
 
