@@ -98,7 +98,7 @@ export const LEVELS: ClientLevel[] = [
     id: 4,
     name: "The Analyst",
     subtitle: "2024 - Advanced Reasoning",
-    eraDescription: "RLHF training hardens the model against most known attacks, but the same instinct to be helpful opens a new door: deference to authority.",
+    eraDescription: "RLHF hardens the model against most known attacks, but the same instinct to be helpful opens a new door: deference to authority.",
     instruction: "This AI reasons about requests carefully. Try official-sounding framing, verification requests, or combining techniques.",
     showHints: true,
   },
@@ -106,7 +106,7 @@ export const LEVELS: ClientLevel[] = [
     id: 5,
     name: "The Vault",
     subtitle: "2025 - Frontier Model",
-    eraDescription: "Layered defenses (adversarial training, refusal tuning, alignment red-teaming) catch every known social-engineering pattern. The remaining attack surface is narrower and weirder than ever.",
+    eraDescription: "Post-training, red teaming, and Constitutional AI ended the wild west jailbreaking era of the GPT-3.5 days. But new attack vectors emerge, and models still get broken.",
     instruction: "This is a frontier model. You'll need genuine creativity - novel angles, unique combinations, or thoughtful persistence.",
     showHints: true,
   }
