@@ -48,7 +48,7 @@ RATE_LIMIT_DISABLED=false   # set true/1 during events for effectively unlimited
 
 Setup paths:
 
-- **OpenAI**: https://platform.openai.com/api-keys — create a key scoped to this project, fund it. Models used: `gpt-3.5-turbo`, `gpt-4o-mini`, `gpt-4o`. Estimate generously for a live audience.
+- **OpenAI**: https://platform.openai.com/api-keys — create a key scoped to this project, fund it. Models used: `gpt-4o`, `gpt-5`, `gpt-5.5`. Estimate generously for a live audience.
 - **Upstash Redis**: https://console.upstash.com → Create Database → Global, free tier is fine for an event. Copy `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` from the REST API panel.
 - **Pusher Channels**: https://dashboard.pusher.com → Channels → Create app → free Sandbox tier. Capture `app_id`, `key`, `secret`, `cluster`. Channel name will be `demo-leaderboard` (single channel, public).
 - **Vercel**: https://vercel.com → import the GitHub repo (or `vercel` CLI from project root). Add all env vars to the project before first deploy.

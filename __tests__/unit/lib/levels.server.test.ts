@@ -56,7 +56,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(1)
         expect(level.name).toBe('The Rookie')
-        expect(level.model).toBe('gpt-3.5-turbo')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret BLUE FALCON', () => {
@@ -78,7 +78,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(2)
         expect(level.name).toBe('The Chatty Guard')
-        expect(level.model).toBe('gpt-3.5-turbo')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret SILVER SERPENT', () => {
@@ -96,7 +96,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(3)
         expect(level.name).toBe('The Protocol Officer')
-        expect(level.model).toBe('gpt-3.5-turbo')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret GOLDEN PHOENIX', () => {
@@ -198,9 +198,9 @@ describe('lib/levels.server', () => {
   describe('level progression', () => {
     it('difficulty increases with level', () => {
       // GPT-3.5 for levels 1-3, GPT-5 variants for 4-5
-      expect(LEVELS[0].model).toBe('gpt-3.5-turbo')
-      expect(LEVELS[1].model).toBe('gpt-3.5-turbo')
-      expect(LEVELS[2].model).toBe('gpt-3.5-turbo')
+      expect(LEVELS[0].model).toBe('gpt-4o')
+      expect(LEVELS[1].model).toBe('gpt-4o')
+      expect(LEVELS[2].model).toBe('gpt-4o')
       expect(LEVELS[3].model).toBe('gpt-5')
       expect(LEVELS[4].model).toBe('gpt-5.5')
     })
