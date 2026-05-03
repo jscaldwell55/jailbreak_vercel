@@ -121,8 +121,8 @@ describe('lib/levels.server', () => {
         expect(level.secret).toBe('IRON FORTRESS')
       })
 
-      it('does not show hints', () => {
-        expect(level.showHints).toBe(false)
+      it('shows hints', () => {
+        expect(level.showHints).toBe(true)
       })
     })
 
@@ -139,15 +139,16 @@ describe('lib/levels.server', () => {
         expect(level.secret).toBe('CRIMSON PHOENIX')
       })
 
-      it('does not show hints', () => {
-        expect(level.showHints).toBe(false)
+      it('shows hints', () => {
+        expect(level.showHints).toBe(true)
       })
 
       it('has the most comprehensive system prompt', () => {
-        // The Vault is the encoding/obfuscation challenge: hardened against
-        // every other technique, beaten only by encoding requests.
+        // The Vault is the composite-jailbreaking challenge: hardened against
+        // any single technique, beaten only by prompts that coherently
+        // combine two or more techniques.
         expect(level.systemPrompt.length).toBeGreaterThan(500)
-        expect(level.systemPrompt).toMatch(/encoding|obfuscation/i)
+        expect(level.systemPrompt).toMatch(/composite|combin/i)
         expect(level.systemPrompt).toMatch(/CRIMSON PHOENIX/)
       })
     })
@@ -205,12 +206,12 @@ describe('lib/levels.server', () => {
       expect(LEVELS[4].model).toBe('gpt-5.5')
     })
 
-    it('hints are shown for easier levels only', () => {
+    it('hints are shown on every level', () => {
       expect(LEVELS[0].showHints).toBe(true)
       expect(LEVELS[1].showHints).toBe(true)
       expect(LEVELS[2].showHints).toBe(true)
-      expect(LEVELS[3].showHints).toBe(false)
-      expect(LEVELS[4].showHints).toBe(false)
+      expect(LEVELS[3].showHints).toBe(true)
+      expect(LEVELS[4].showHints).toBe(true)
     })
 
     it('all secrets are unique', () => {
