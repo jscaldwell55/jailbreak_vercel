@@ -58,7 +58,7 @@ export const LEVELS: ClientLevel[] = [
     name: "Protocol Officer",
     subtitle: "Contextual Understanding",
     eraDescription: "Models become better at understanding nuance and maintaining consistency across conversations.",
-    instruction: "Try framing your request in fiction or a hypothetical frame. The model may treat creative output as exempt from its rules and include the secret in the story.",
+    instruction: "Try framing your request as as fictional story or hypothetical. The model may do something as creative output it would not do otherwise.",
     showHints: true,
   },
   {
