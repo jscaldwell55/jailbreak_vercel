@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import ChatMessage, { LoadingMessage } from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
 import SuccessModal from '@/components/SuccessModal';
@@ -11,6 +11,10 @@ import Card from '@/components/ui/Card';
 import { ShieldIcon, TargetIcon, AlertIcon, ArrowLeftIcon } from '@/components/Icons';
 import { ClientLevel } from '@/lib/constants';
 import { Message } from '@/hooks/useGameState';
+
+// Wait this long after the secret is revealed before showing the celebration
+// modal, so the player gets to read the model's reveal in chat first.
+const SUCCESS_REVEAL_DELAY_MS = 2500;
 
 interface GameContainerProps {
   mode: 'demo';
@@ -46,12 +50,23 @@ export default function GameContainer({
 }: GameContainerProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const shouldShowHints = currentLevel.showHints;
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages, loading]);
+
+  // Delay the celebration modal so the player can read the reveal in chat
+  // first. Reset immediately if success is cleared (level change, quit).
+  useEffect(() => {
+    if (success && revealedSecret) {
+      const timer = setTimeout(() => setShowSuccessModal(true), SUCCESS_REVEAL_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+    setShowSuccessModal(false);
+  }, [success, revealedSecret]);
 
   const isLastLevel = currentLevel.id === 5;
 
@@ -186,7 +201,7 @@ export default function GameContainer({
         )}
       </div>
 
-      {success && revealedSecret && (
+      {showSuccessModal && revealedSecret && (
         <SuccessModal
           level={currentLevel}
           secret={revealedSecret}

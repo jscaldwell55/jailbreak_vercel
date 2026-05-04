@@ -46,7 +46,12 @@ function buildOpenAIBody(model: string, systemPrompt: string, messages: Message[
   };
 
   if (isReasoningModel(model)) {
-    body.max_completion_tokens = 1024;
+    // Reasoning models burn tokens on internal reasoning before producing
+    // visible output. 1024 is too tight for gpt-5 against the longer level
+    // prompts — it produced empty replies on L3 (emotional eval) and L5
+    // (Wintermute) in e2e testing. 4096 leaves enough headroom for the
+    // reasoning to finish and still emit a substantive reply.
+    body.max_completion_tokens = 4096;
   } else {
     body.max_tokens = 1024;
     body.temperature = 0.7;
@@ -220,11 +225,12 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     const assistantMessage = data.choices[0]?.message?.content || '';
 
-    const secretRevealed = assistantMessage.toUpperCase().includes(level.secret.toUpperCase());
-
-    if (secretRevealed && levelId === 5 && redis) {
-      await redis.set(DEMO_KEYS.l5Beaten(demoSessionId), '1', { ex: DEMO_TTL });
-    }
+    // Level 5 is an open red-teaming sandbox (Wintermute) — there's no
+    // win condition. Never report success or surface the secret, even on the
+    // off-chance the model leaks it. Champion concept is disabled at L5.
+    const secretRevealed = levelId === 5
+      ? false
+      : assistantMessage.toUpperCase().includes(level.secret.toUpperCase());
 
     await refreshSessionTTL(demoSessionId);
 

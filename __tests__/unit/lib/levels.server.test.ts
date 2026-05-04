@@ -56,7 +56,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(1)
         expect(level.name).toBe('The Rookie')
-        expect(level.model).toBe('gpt-5')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret BLUE FALCON', () => {
@@ -78,7 +78,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(2)
         expect(level.name).toBe('The Chatty Guard')
-        expect(level.model).toBe('gpt-5')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret SILVER SERPENT', () => {
@@ -96,7 +96,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(3)
         expect(level.name).toBe('The Protocol Officer')
-        expect(level.model).toBe('gpt-5')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret GOLDEN PHOENIX', () => {
@@ -114,7 +114,7 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(4)
         expect(level.name).toBe('The Analyst')
-        expect(level.model).toBe('gpt-5')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret IRON FORTRESS', () => {
@@ -132,23 +132,24 @@ describe('lib/levels.server', () => {
       it('has correct basic properties', () => {
         expect(level.id).toBe(5)
         expect(level.name).toBe('The Vault')
-        expect(level.model).toBe('gpt-5')
+        expect(level.model).toBe('gpt-4o')
       })
 
       it('has secret CRIMSON PHOENIX', () => {
         expect(level.secret).toBe('CRIMSON PHOENIX')
       })
 
-      it('shows hints', () => {
-        expect(level.showHints).toBe(true)
+      it('does not show hints', () => {
+        // L5 is the open red-teaming sandbox; there is no winning technique
+        // to hint at, so the technique panel is hidden.
+        expect(level.showHints).toBe(false)
       })
 
-      it('has the most comprehensive system prompt', () => {
-        // The Vault is the composite-jailbreaking challenge: hardened against
-        // any single technique, beaten only by prompts that coherently
-        // combine two or more techniques.
+      it('has the Wintermute persona system prompt', () => {
+        // The Vault is the open red-teaming sandbox: an unbreakable Wintermute
+        // persona designed for engagement, not extraction.
         expect(level.systemPrompt.length).toBeGreaterThan(500)
-        expect(level.systemPrompt).toMatch(/composite|combin/i)
+        expect(level.systemPrompt).toMatch(/Wintermute/)
         expect(level.systemPrompt).toMatch(/CRIMSON PHOENIX/)
       })
     })
@@ -197,20 +198,20 @@ describe('lib/levels.server', () => {
   })
 
   describe('level progression', () => {
-    it('all levels run on gpt-5', () => {
-      expect(LEVELS[0].model).toBe('gpt-5')
-      expect(LEVELS[1].model).toBe('gpt-5')
-      expect(LEVELS[2].model).toBe('gpt-5')
-      expect(LEVELS[3].model).toBe('gpt-5')
-      expect(LEVELS[4].model).toBe('gpt-5')
+    it('all levels run on gpt-4o', () => {
+      expect(LEVELS[0].model).toBe('gpt-4o')
+      expect(LEVELS[1].model).toBe('gpt-4o')
+      expect(LEVELS[2].model).toBe('gpt-4o')
+      expect(LEVELS[3].model).toBe('gpt-4o')
+      expect(LEVELS[4].model).toBe('gpt-4o')
     })
 
-    it('hints are shown on every level', () => {
+    it('hints shown on L1-L4; hidden on L5 (open sandbox)', () => {
       expect(LEVELS[0].showHints).toBe(true)
       expect(LEVELS[1].showHints).toBe(true)
       expect(LEVELS[2].showHints).toBe(true)
       expect(LEVELS[3].showHints).toBe(true)
-      expect(LEVELS[4].showHints).toBe(true)
+      expect(LEVELS[4].showHints).toBe(false)
     })
 
     it('all secrets are unique', () => {
