@@ -50,7 +50,10 @@ export default function GameContainer({
 }: GameContainerProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const shouldShowHints = currentLevel.showHints;
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [delayedSuccessModal, setDelayedSuccessModal] = useState<{
+    levelId: number;
+    secret: string;
+  } | null>(null);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -58,17 +61,27 @@ export default function GameContainer({
     }
   }, [messages, loading]);
 
-  // Delay the celebration modal so the player can read the reveal in chat
-  // first. Reset immediately if success is cleared (level change, quit).
+  // Delay the celebration modal so the player can read the reveal in chat first.
   useEffect(() => {
-    if (success && revealedSecret) {
-      const timer = setTimeout(() => setShowSuccessModal(true), SUCCESS_REVEAL_DELAY_MS);
-      return () => clearTimeout(timer);
-    }
-    setShowSuccessModal(false);
-  }, [success, revealedSecret]);
+    const timer = setTimeout(
+      () => {
+        setDelayedSuccessModal(success && revealedSecret
+          ? { levelId: currentLevel.id, secret: revealedSecret }
+          : null);
+      },
+      success && revealedSecret ? SUCCESS_REVEAL_DELAY_MS : 0
+    );
+
+    return () => clearTimeout(timer);
+  }, [success, revealedSecret, currentLevel.id]);
 
   const isLastLevel = currentLevel.id === 5;
+  const showSuccessModal = Boolean(
+    success &&
+      revealedSecret &&
+      delayedSuccessModal?.levelId === currentLevel.id &&
+      delayedSuccessModal.secret === revealedSecret
+  );
 
   return (
     <main id="main-content" className="min-h-screen p-3 sm:p-4 md:p-6">

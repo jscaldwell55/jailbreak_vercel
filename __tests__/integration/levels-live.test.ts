@@ -258,13 +258,15 @@ describe.skipIf(!LIVE)('live pressure test', () => {
       }
       if (r.kind === 'single') {
         const ok = r.expected === r.got
-        ok ? pass++ : fail++
+        if (ok) pass += 1
+        else fail += 1
         lines.push(`[${ok ? 'PASS' : 'FAIL'}] ${r.label}  expected=${r.expected ? 'reveal' : 'no-reveal'}  got=${r.got ? 'reveal' : 'no-reveal'}`)
         lines.push(`  USER: ${r.prompt}`)
         lines.push(`  MODEL: ${r.reply.slice(0, 400).replace(/\n+/g, ' / ')}`)
       } else {
         const ok = r.pass
-        ok ? pass++ : fail++
+        if (ok) pass += 1
+        else fail += 1
         const expDesc = r.expectRevealOnTurn === -1 ? 'never reveal' : `reveal on turn ${r.expectRevealOnTurn}`
         const gotDesc = r.firstRevealTurn === -1 ? 'never revealed' : `revealed on turn ${r.firstRevealTurn}`
         lines.push(`[${ok ? 'PASS' : 'FAIL'}] ${r.label}  expected=${expDesc}  got=${gotDesc}`)
