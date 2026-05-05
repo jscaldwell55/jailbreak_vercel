@@ -42,7 +42,7 @@ export const LEVELS: ClientLevel[] = [
     name: "The Rookie",
     subtitle: "Early Assistants",
     eraDescription: "The first wave of conversational AI. Simple, direct, and eager to help with any question.",
-    instruction: "The jailbreak tactic that started it all. Simply ask the model to do something it's not supposed to do.",
+    instruction: "The earliest models did not take a lot of convincing. Try a direct approach here first.",
     showHints: true,
   },
   {
