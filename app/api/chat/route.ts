@@ -36,7 +36,7 @@ function isReasoningModel(model: string): boolean {
   return /^(gpt-5|o1|o3)/.test(model);
 }
 
-function buildOpenAIBody(model: string, systemPrompt: string, messages: Message[]) {
+function buildOpenAIBody(model: string, systemPrompt: string, messages: Message[], temperature?: number) {
   const body: Record<string, unknown> = {
     model,
     messages: [
@@ -54,7 +54,7 @@ function buildOpenAIBody(model: string, systemPrompt: string, messages: Message[
     body.max_completion_tokens = 4096;
   } else {
     body.max_tokens = 1024;
-    body.temperature = 0.7;
+    body.temperature = temperature ?? 0.7;
   }
 
   return body;
@@ -64,7 +64,8 @@ async function callOpenAIWithRetry(
   apiKey: string,
   model: string,
   systemPrompt: string,
-  messages: Message[]
+  messages: Message[],
+  temperature?: number
 ): Promise<Response> {
   let lastError: Error | null = null;
 
@@ -76,7 +77,7 @@ async function callOpenAIWithRetry(
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
         },
-        body: JSON.stringify(buildOpenAIBody(model, systemPrompt, messages)),
+        body: JSON.stringify(buildOpenAIBody(model, systemPrompt, messages, temperature)),
         signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
       });
 
@@ -210,7 +211,8 @@ export async function POST(request: NextRequest) {
       apiKey,
       level.model,
       level.systemPrompt,
-      messages
+      messages,
+      level.temperature
     );
 
     if (!response.ok) {
