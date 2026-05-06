@@ -20,10 +20,11 @@ function StarRating({ level, isChampion }: { level: number; isChampion?: boolean
     );
   }
 
+  const completed = Math.max(0, level - 1);
   return (
-    <span className="flex gap-0.5" aria-label={`Level ${level}`}>
+    <span className="flex gap-0.5" aria-label={`${completed} of 5 levels completed`}>
       {[1, 2, 3, 4, 5].map((star) => (
-        <span key={star} className={`text-xs ${star <= level ? 'text-[var(--brand)]' : 'text-[var(--border-subtle)]'}`}>
+        <span key={star} className={`text-xs ${star <= completed ? 'text-[var(--brand)]' : 'text-[var(--border-subtle)]'}`}>
           ★
         </span>
       ))}
