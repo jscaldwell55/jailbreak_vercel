@@ -7,7 +7,7 @@ One-shot Vercel deployment of **Demo mode only** from `jailbreak_demo`, for a li
 - Source repo: `/Users/jay.caldwell/jailbreak_demo` (branch `pr-10` is fine)
 - Treat the source as read-only reference; copy in, then mutate locally.
 
-## Stack (final)
+## Stack 
 
 | Concern | Choice 
 |---|---|
