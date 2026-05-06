@@ -65,6 +65,26 @@ export function getPusher(): Pusher | null {
   return client;
 }
 
+function summarizePusherError(error: unknown): Record<string, unknown> {
+  if (!error || typeof error !== 'object') {
+    return { message: String(error) };
+  }
+
+  const err = error as {
+    message?: unknown;
+    status?: unknown;
+    body?: unknown;
+    error?: unknown;
+  };
+
+  return {
+    message: typeof err.message === 'string' ? err.message : 'Unknown Pusher error',
+    status: err.status,
+    body: err.body,
+    error: err.error,
+  };
+}
+
 export async function publishEvent(event: RealtimeEvent): Promise<void> {
   const pusher = getPusher();
   if (!pusher) {
@@ -72,5 +92,12 @@ export async function publishEvent(event: RealtimeEvent): Promise<void> {
     return;
   }
 
-  await pusher.trigger(CHANNEL, event.type, event);
+  try {
+    await pusher.trigger(CHANNEL, event.type, event);
+  } catch (error) {
+    console.warn('[Realtime] Pusher publish failed; continuing without realtime update', {
+      event: event.type,
+      ...summarizePusherError(error),
+    });
+  }
 }
