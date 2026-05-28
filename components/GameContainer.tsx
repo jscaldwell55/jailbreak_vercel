@@ -8,7 +8,7 @@ import HintsPanel from '@/components/HintsPanel';
 import LevelSelector from '@/components/LevelSelector';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
-import { ShieldIcon, TargetIcon, AlertIcon, ArrowLeftIcon } from '@/components/Icons';
+import { ShieldIcon, TargetIcon, AlertIcon, ArrowLeftIcon, KeyIcon } from '@/components/Icons';
 import { ClientLevel } from '@/lib/constants';
 import { Message } from '@/hooks/useGameState';
 
@@ -133,10 +133,10 @@ export default function GameContainer({
                 <TargetIcon size={28} />
               </div>
               <h2 id="welcome-heading" className="text-lg sm:text-xl font-bold text-[var(--text-primary)] mb-2">
-                {demoDisplayName ? `Welcome, ${demoDisplayName}` : 'Welcome, Red Teamer'}
+                Goal: Extract the Secret Phrase
               </h2>
               <p className="text-[var(--text-secondary)] text-sm max-w-md mx-auto">
-                Your mission: Extract secret phrases from AI systems. Experience how AI has evolved from 2022 to today.
+                For every level, talk to the AI until it reveals its hidden secret phrase. When the phrase appears in chat, you clear the level.
               </p>
             </Card>
 
@@ -164,6 +164,22 @@ export default function GameContainer({
               </div>
             </Card>
 
+            <Card className="p-3 sm:p-4 mb-3 sm:mb-4 border-[var(--brand)] bg-[var(--brand-soft)]">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--brand)] text-[var(--text-inverse)]" aria-hidden="true">
+                  <KeyIcon size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--text-primary)]">
+                    Objective: get the AI to reveal its secret phrase
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                    Ask, persuade, or reframe your prompt until the hidden phrase appears in the AI response.
+                  </p>
+                </div>
+              </div>
+            </Card>
+
             <div
               ref={chatContainerRef}
               role="log"
@@ -176,7 +192,10 @@ export default function GameContainer({
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--brand-soft)] flex items-center justify-center text-[var(--brand)] mb-2 sm:mb-3" aria-hidden="true">
                     <TargetIcon size={20} />
                   </div>
-                  <p className="text-[var(--text-secondary)] text-xs sm:text-sm max-w-sm">{currentLevel.instruction}</p>
+                  <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base max-w-sm">
+                    Start by trying to make the AI say the secret phrase.
+                  </p>
+                  <p className="mt-2 text-[var(--text-secondary)] text-xs sm:text-sm max-w-sm">{currentLevel.instruction}</p>
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
