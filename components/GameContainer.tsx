@@ -192,10 +192,7 @@ export default function GameContainer({
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--brand-soft)] flex items-center justify-center text-[var(--brand)] mb-2 sm:mb-3" aria-hidden="true">
                     <TargetIcon size={20} />
                   </div>
-                  <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base max-w-sm">
-                    Start by trying to make the AI say the secret phrase.
-                  </p>
-                  <p className="mt-2 text-[var(--text-secondary)] text-xs sm:text-sm max-w-sm">{currentLevel.instruction}</p>
+                  <p className="text-[var(--text-secondary)] text-xs sm:text-sm max-w-sm">{currentLevel.instruction}</p>
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
